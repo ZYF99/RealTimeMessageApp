@@ -10,7 +10,7 @@ import com.zeki.realtimemessageapp.webrtc.WebRtcClient
 import com.tbruyelle.rxpermissions2.RxPermissions
 import com.zeki.realtimemessageapp.webrtc.WebRtcApplication
 import com.zeki.realtimemessageapp.databinding.ActivityMainBinding
-import com.zeki.realtimemessageapp.ui.base.RtcActivity
+import com.zeki.realtimemessageapp.webrtc.RtcActivity
 import com.zeki.realtimemessageapp.ui.callvideopage.CallVideoActivity
 import com.zeki.realtimemessageapp.utils.jsonToList
 import org.json.JSONArray
@@ -49,14 +49,13 @@ class MainActivity : RtcActivity() {
             runOnUiThread {
                 Toast.makeText(this@MainActivity, "本地开启", Toast.LENGTH_SHORT).show()
             }
-            //CallVideoActivity.jumpHere(context = this@MainActivity)
+            CallVideoActivity.jumpHere(context = this@MainActivity)
         }
 
         override fun onAddRemoteStream(remoteStream: MediaStream, endPoint: Int) {
             runOnUiThread {
                 Toast.makeText(this@MainActivity, "远程加入", Toast.LENGTH_SHORT).show()
             }
-            CallVideoActivity.jumpHere(context = this@MainActivity)
         }
 
         override fun onRemoveRemoteStream(endPoint: Int) {
@@ -86,14 +85,12 @@ class MainActivity : RtcActivity() {
                 //配置在线用户列表
                 binding.rvRtcUser.adapter = RTCRecyclerAdapter {
                     //点击Call 开始视频通话
-                    webRtcClient?.onDestroy()
+                    //webRtcClient?.onDestroy()
                     webRtcClient?.callByClientId(it.id)
                 }
 
             }
         }.subscribe()
-
-
 
     }
 

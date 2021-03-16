@@ -4,7 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import com.zeki.realtimemessageapp.databinding.ActivityCallVideoBinding
-import com.zeki.realtimemessageapp.ui.base.RtcActivity
+import com.zeki.realtimemessageapp.webrtc.RtcActivity
 import com.zeki.realtimemessageapp.webrtc.WebRtcClient
 import org.webrtc.MediaStream
 
@@ -17,8 +17,13 @@ class CallVideoActivity : RtcActivity() {
         override fun onCallReady(callId: String) {}
         override fun onStatusChanged(newStatus: String) {}
         override fun onLocalStream(localStream: MediaStream) {}
-        override fun onAddRemoteStream(remoteStream: MediaStream, endPoint: Int) {}
-        override fun onRemoveRemoteStream(endPoint: Int) {}
+        override fun onAddRemoteStream(remoteStream: MediaStream, endPoint: Int) {
+            //渲染远端画面
+            remoteRenderer?.let { remoteStream.videoTracks?.get(0)?.addSink(it) }
+        }
+        override fun onRemoveRemoteStream(endPoint: Int) {
+            finish()
+        }
     }
 
     override fun initView() {
@@ -27,32 +32,27 @@ class CallVideoActivity : RtcActivity() {
 
         setContentView(binding.root)
 
-        localRenderer = binding.localRenderer
-        remoteRenderer = binding.remoteRenderer
+        //渲染本地画面
+        localRenderer?.let { localMediaStream?.videoTracks?.get(0)?.addSink(it) }
 
+        //断开
         binding.btnCancel.setOnClickListener {
-
+            finish()
         }
 
-
     }
 
-    override fun initData() {
-
-        super.initData()
-
-    }
-
-/*    override fun onDestroy() {
-        remoteMediaStream?.dispose()
+    override fun onDestroy() {
         localMediaStream?.dispose()
-        remoteMediaStream = null
         localMediaStream = null
         super.onDestroy()
-    }*/
+    }
 
     companion object {
-        fun jumpHere(context: Context, bundle: Bundle? = null) {
+        fun jumpHere(
+            context: Context,
+            bundle: Bundle? = null
+        ) {
             val intent = Intent(context, CallVideoActivity::class.java).apply {
                 if (bundle != null) putExtras(bundle)
             }
