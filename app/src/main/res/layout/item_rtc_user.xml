@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
+    <data>
+        <variable name="rtcUser"
+                  type="com.zeki.realtimemessageapp.model.RTCUser"/>
+    </data>
+    <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:padding="16dp"
+            android:layout_margin="8dp"
+            android:backgroundTint="#547EECE2"
+            android:background="@drawable/bg_corner_8dp">
+
+        <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:padding="16dp"
+                android:textSize="24dp"
+                android:textColor="#000000"
+                tools:text="Alias"
+                android:text="@{rtcUser.name}"/>
+
+        <Button
+                android:id="@+id/btn_call"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:background="@drawable/selector_button"
+                android:text="CALL"/>
+
+    </LinearLayout>
+</layout>
