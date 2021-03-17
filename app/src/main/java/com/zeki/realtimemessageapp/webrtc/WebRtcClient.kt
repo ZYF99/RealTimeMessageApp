@@ -2,6 +2,7 @@ package com.zeki.realtimemessageapp.webrtc
 
 import android.app.Application
 import android.content.Context
+import android.os.Build
 import android.util.Log
 import com.zeki.realtimemessageapp.utils.getFrontVideoCapture
 import com.github.nkzawa.emitter.Emitter
@@ -12,8 +13,8 @@ import org.json.JSONException
 import org.json.JSONObject
 import org.webrtc.*
 import java.net.URISyntaxException
-import java.util.HashMap
-import java.util.LinkedList
+import java.util.*
+import kotlin.concurrent.timer
 
 class WebRtcClient(
     url: String,
@@ -24,12 +25,11 @@ class WebRtcClient(
 
     private val endPoints = BooleanArray(MAX_PEER)
     private val factory: PeerConnectionFactory
-    private val peers = HashMap<String, Peer>()
-    private val iceServers = LinkedList<PeerConnection.IceServer>()
-    private val pcConstraints = MediaConstraints()
+
+
     private var localMS: MediaStream? = null
     private var videoSource: VideoSource? = null
-    private var socket: Socket? = null
+
     private val vc by lazy { getVideoCapture() }
 
     var audioTrack: AudioTrack? = null
@@ -55,43 +55,14 @@ class WebRtcClient(
             )
             .createPeerConnectionFactory()
 
-        val audioSource = factory.createAudioSource(MediaConstraints().apply {
-            mandatory.add(MediaConstraints.KeyValuePair("maxHeight", "720"))
-            mandatory.add(MediaConstraints.KeyValuePair("maxWidth", "1280"))
-        })
-
+        val audioSource = factory.createAudioSource(MediaConstraints())
         audioTrack = factory.createAudioTrack("audiotrack", audioSource)
 
-        // 初始化 Socket 通信
-        val messageHandler = MessageHandler()
 
-        try {
-            socket = IO.socket(url)
-        } catch (e: URISyntaxException) {
-            e.printStackTrace()
-        }
-
-        socket?.on("id", messageHandler.onId)
-        socket?.on("message", messageHandler.onMessage)
-        socket?.on("ids", messageHandler.onIdsChanged)
-        socket?.connect()
-
-
-        //初始化 ICE 服务器创建 PC 时使用
-        iceServers.add(PeerConnection.IceServer("stun:132.232.240.86:3478"))
-        /*iceServers.add(PeerConnection.IceServer("stun:stun.voipbuster.com:3478"))*/
-
-
-        //初始化本地的 MediaConstraints 创建 PC 时使用，是流媒体的配置信息
-        pcConstraints.mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"))
-        pcConstraints.mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveVideo", "true"))
-        pcConstraints.optional.add(MediaConstraints.KeyValuePair("DtlsSrtpKeyAgreement", "true"))
     }
 
 
-    fun refreshIds() {
-        socket?.emit("refreshids", null)
-    }
+
 
     fun callByClientId(clientId: String) {
         sendMessage(clientId, "init", JSONObject())
@@ -115,52 +86,15 @@ class WebRtcClient(
         socket?.emit("message", message)
     }
 
-    private inner class MessageHandler {
 
-        val onMessage = Emitter.Listener { args ->
-            val data = args[0] as JSONObject
-            try {
-                val from = data.getString("from")
-                val type = data.getString("type")
-                var payload: JSONObject? = null
-                if (type != "init") {
-                    payload = data.getJSONObject("payload")
-                }
-                //用于检查是否 PC 是否已存在已经是否达到最大的2个 PC 的限制
-                if (!peers.containsKey(from)) {
-                    val endPoint = findEndPoint()
-                    if (endPoint == MAX_PEER) return@Listener
-                    else addPeer(from, endPoint)
-                }
-                //根据不同的指令类型和数据响应相应步骤的方法
-                when (type) {
-                    "init" -> createOffer(from)
-                    "offer" -> createAnswer(from, payload)
-                    "answer" -> setRemoteSdp(from, payload)
-                    "candidate" -> addIceCandidate(from, payload)
-                }
-
-            } catch (e: JSONException) {
-                e.printStackTrace()
-            }
-        }
-
-        val onId = Emitter.Listener { args ->
-            val id = args[0] as String
-            webrtcListener.onCallReady(id)
-        }
-
-        val onIdsChanged = Emitter.Listener { args ->
-            Log.d(TAG, args.toString())
-            val ids = args[0] as JSONArray
-
-            webrtcListener.onOnlineIdsChanged(ids)
-        }
-    }
 
     private fun createOffer(peerId: String) {
         Log.d(TAG, "CreateOfferCommand")
         val peer = peers[peerId]
+
+        localMS?.addTrack(audioTrack)
+        peer?.pc?.addStream(localMS!!)
+
         peer?.pc?.createOffer(peer, pcConstraints)
     }
 
@@ -199,92 +133,7 @@ class WebRtcClient(
     }
 
 
-    private inner class Peer(val id: String, val endPoint: Int) : SdpObserver,
-        PeerConnection.Observer {
 
-        val pc: PeerConnection?
-
-
-        init {
-            Log.d(TAG, "new Peer: $id $endPoint")
-            this.pc = factory.createPeerConnection(iceServers, pcConstraints, this)
-            this.pc?.setAudioRecording(true)
-            this.pc?.setAudioPlayout(true)
-            localMS?.addTrack(audioTrack)
-            pc?.addStream(localMS!!) //, new MediaConstraints()
-            webrtcListener.onStatusChanged("CONNECTING")
-        }
-
-        override fun onCreateSuccess(sdp: SessionDescription) {
-            // TODO: modify sdp to use pcParams prefered codecs
-            try {
-                val payload = JSONObject()
-                payload.put("type", sdp.type.canonicalForm())
-                payload.put("sdp", sdp.description)
-                sendMessage(id, sdp.type.canonicalForm(), payload)
-                pc!!.setLocalDescription(this@Peer, sdp)
-            } catch (e: JSONException) {
-                e.printStackTrace()
-            }
-
-        }
-
-        override fun onSetSuccess() {}
-
-        override fun onCreateFailure(s: String) {}
-
-        override fun onSetFailure(s: String) {}
-
-        override fun onSignalingChange(signalingState: PeerConnection.SignalingState) {}
-
-        override fun onIceConnectionChange(iceConnectionState: PeerConnection.IceConnectionState) {
-            webrtcListener.onStatusChanged(iceConnectionState.name)
-            Log.d(TAG, "onIceConnectionChange ${iceConnectionState.name}")
-            if (iceConnectionState == PeerConnection.IceConnectionState.DISCONNECTED) {
-                removePeer(id)
-            }
-        }
-
-        override fun onIceGatheringChange(iceGatheringState: PeerConnection.IceGatheringState) {}
-
-        override fun onIceCandidate(candidate: IceCandidate) {
-            try {
-                val payload = JSONObject()
-                payload.put("label", candidate.sdpMLineIndex)
-                payload.put("id", candidate.sdpMid)
-                payload.put("candidate", candidate.sdp)
-                sendMessage(id, "candidate", payload)
-            } catch (e: JSONException) {
-                e.printStackTrace()
-            }
-        }
-
-        override fun onIceConnectionReceivingChange(p0: Boolean) {
-        }
-
-        override fun onIceCandidatesRemoved(p0: Array<out IceCandidate>?) {
-        }
-
-        override fun onAddTrack(p0: RtpReceiver?, p1: Array<out MediaStream>?) {
-        }
-
-        override fun onAddStream(mediaStream: MediaStream) {
-            Log.d(TAG, "onAddStream " + mediaStream.id)
-            // remote streams are displayed from 1 to MAX_PEER (0 is localStream)
-            webrtcListener.onAddRemoteStream(mediaStream, endPoint + 1)
-        }
-
-        override fun onRemoveStream(mediaStream: MediaStream) {
-            Log.d(TAG, "onRemoveStream " + mediaStream.id)
-            removePeer(id)
-        }
-
-        override fun onDataChannel(dataChannel: DataChannel) {}
-
-        override fun onRenegotiationNeeded() {
-
-        }
-    }
 
     private fun addPeer(id: String, endPoint: Int): Peer {
         val peer = Peer(id, endPoint)
@@ -348,7 +197,9 @@ class WebRtcClient(
     private fun getVideoCapture(): CameraVideoCapturer = getFrontVideoCapture(app)
 
 
-    fun startLocalCamera(name: String, context: Context) {
+
+    //开启本地视频流
+    fun startLocalCamera(context: Context) {
         //init local media stream
         val localVideoSource = factory.createVideoSource(false)
         val surfaceTextureHelper =
@@ -364,21 +215,13 @@ class WebRtcClient(
         localMS = factory.createLocalMediaStream("LOCALMEDIASTREAM")
         localMS?.addTrack(factory.createVideoTrack("LOCALMEDIASTREAM", localVideoSource))
         webrtcListener.onLocalStream(localMS!!)
-
-        try {
-            val message = JSONObject()
-            message.put("name", name)
-            socket?.emit("readyToStream", message)
-        } catch (e: JSONException) {
-            e.printStackTrace()
-        }
+        //readyToStream(Build.MODEL)
     }
 
     /**
      * Implement this interface to be notified of events.
      */
     interface RtcListener {
-        fun onCallReady(callId: String)
 
         fun onStatusChanged(newStatus: String)
 
@@ -387,8 +230,6 @@ class WebRtcClient(
         fun onAddRemoteStream(remoteStream: MediaStream, endPoint: Int)
 
         fun onRemoveRemoteStream(endPoint: Int)
-
-        fun onOnlineIdsChanged(jsonArray: JSONArray) {}
     }
 
     companion object {

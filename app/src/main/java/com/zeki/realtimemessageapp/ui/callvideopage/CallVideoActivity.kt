@@ -21,6 +21,7 @@ class CallVideoActivity : RtcActivity() {
             //渲染远端画面
             remoteRenderer?.let { remoteStream.videoTracks?.get(0)?.addSink(it) }
         }
+
         override fun onRemoveRemoteStream(endPoint: Int) {
             finish()
         }
@@ -42,10 +43,19 @@ class CallVideoActivity : RtcActivity() {
 
     }
 
+    override fun onResume() {
+        super.onResume()
+        webRtcClient?.onResume()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        webRtcClient?.onPause()
+    }
+
     override fun onDestroy() {
-        localMediaStream?.dispose()
-        localMediaStream = null
         super.onDestroy()
+        webRtcClient?.onDestroy()
     }
 
     companion object {
