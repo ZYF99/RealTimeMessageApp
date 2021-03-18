@@ -19,3 +19,20 @@ fun Socket.readyToStream(name: String) {
 fun Socket.refreshIdList(){
     emit("refreshids", null)
 }
+
+/**
+ * Send a message through the signaling server
+ *
+ * @param to      id of recipient
+ * @param type    type of message
+ * @param payload payload of message
+ * @throws JSONException
+ */
+@Throws(JSONException::class)
+fun Socket.sendMessage(to: String, type: String, payload: JSONObject) {
+    val message = JSONObject()
+    message.put("to", to)
+    message.put("type", type)
+    message.put("payload", payload)
+    emit("message", message)
+}

@@ -1,4 +1,4 @@
-package com.zeki.realtimemessageapp.utils
+package com.zeki.realtimemessageapp.webrtc
 
 import android.content.Context
 import org.webrtc.Camera1Enumerator

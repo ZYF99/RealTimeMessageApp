@@ -1,12 +1,31 @@
-package com.zeki.realtimemessageapp.ui.home
+package com.zeki.realtimemessageapp.webrtc
 
 import android.util.Log
-import com.zeki.realtimemessageapp.webrtc.WebRtcClient
+import com.github.nkzawa.socketio.client.Socket
+import com.zeki.realtimemessageapp.ui.callvideopage.localMS
+import com.zeki.realtimemessageapp.ui.home.sendMessage
 import org.json.JSONException
 import org.json.JSONObject
 import org.webrtc.*
+import java.util.*
 
-class Peer(val id: String, val endPoint: Int) : SdpObserver, PeerConnection.Observer {
+class Peer(
+    val id: String,
+    val endPoint: Int,
+    factory: PeerConnectionFactory,
+    private val webRtcListener: RtcListener
+) : SdpObserver, PeerConnection.Observer {
+
+    companion object {
+        const val TAG = "PEER LOG: "
+        const val MAX_PEER = 2
+        val peers = HashMap<String, Peer>()
+        val iceServers = LinkedList<PeerConnection.IceServer>()
+        val pcConstraints = MediaConstraints()
+        val endPoints = BooleanArray(MAX_PEER)
+
+        var socket: Socket? = null
+    }
 
     val pc: PeerConnection?
 
@@ -15,9 +34,11 @@ class Peer(val id: String, val endPoint: Int) : SdpObserver, PeerConnection.Obse
         this.pc = factory.createPeerConnection(iceServers, pcConstraints, this)
         this.pc?.setAudioRecording(true)
         this.pc?.setAudioPlayout(true)
-        /*localMS?.addTrack(audioTrack)
-        pc?.addStream(localMS!!) *///, new MediaConstraints()
-        webrtcListener.onStatusChanged("CONNECTING")
+        val audioSource = factory.createAudioSource(MediaConstraints())
+        val audioTrack = factory.createAudioTrack("audiotrack", audioSource)
+        localMS?.addTrack(audioTrack)
+        pc?.addStream(localMS!!)
+        webRtcListener.onStatusChanged("CONNECTING")
     }
 
     override fun onCreateSuccess(sdp: SessionDescription) {
@@ -26,7 +47,7 @@ class Peer(val id: String, val endPoint: Int) : SdpObserver, PeerConnection.Obse
             val payload = JSONObject()
             payload.put("type", sdp.type.canonicalForm())
             payload.put("sdp", sdp.description)
-            sendMessage(id, sdp.type.canonicalForm(), payload)
+            socket?.sendMessage(id, sdp.type.canonicalForm(), payload)
             pc?.setLocalDescription(this@Peer, sdp)
         } catch (e: JSONException) {
             e.printStackTrace()
@@ -42,10 +63,10 @@ class Peer(val id: String, val endPoint: Int) : SdpObserver, PeerConnection.Obse
     override fun onSignalingChange(signalingState: PeerConnection.SignalingState) {}
 
     override fun onIceConnectionChange(iceConnectionState: PeerConnection.IceConnectionState) {
-        webrtcListener.onStatusChanged(iceConnectionState.name)
-        Log.d(WebRtcClient.TAG, "onIceConnectionChange ${iceConnectionState.name}")
+        webRtcListener.onStatusChanged(iceConnectionState.name)
+        Log.d(TAG, "onIceConnectionChange ${iceConnectionState.name}")
         if (iceConnectionState == PeerConnection.IceConnectionState.DISCONNECTED) {
-            removePeer(id)
+            removePeer(id, webRtcListener)
         }
     }
 
@@ -57,30 +78,33 @@ class Peer(val id: String, val endPoint: Int) : SdpObserver, PeerConnection.Obse
             payload.put("label", candidate.sdpMLineIndex)
             payload.put("id", candidate.sdpMid)
             payload.put("candidate", candidate.sdp)
-            sendMessage(id, "candidate", payload)
+            socket?.sendMessage(id, "candidate", payload)
         } catch (e: JSONException) {
             e.printStackTrace()
         }
     }
 
     override fun onIceConnectionReceivingChange(p0: Boolean) {
+
     }
 
     override fun onIceCandidatesRemoved(p0: Array<out IceCandidate>?) {
+
     }
 
     override fun onAddTrack(p0: RtpReceiver?, p1: Array<out MediaStream>?) {
+
     }
 
     override fun onAddStream(mediaStream: MediaStream) {
-        Log.d(WebRtcClient.TAG, "onAddStream " + mediaStream.id)
+        Log.d(TAG, "onAddStream " + mediaStream.id)
         // remote streams are displayed from 1 to MAX_PEER (0 is localStream)
-        webrtcListener.onAddRemoteStream(mediaStream, endPoint + 1)
+        webRtcListener.onAddRemoteStream(mediaStream, endPoint + 1)
     }
 
     override fun onRemoveStream(mediaStream: MediaStream) {
-        Log.d(WebRtcClient.TAG, "onRemoveStream " + mediaStream.id)
-        removePeer(id)
+        Log.d(TAG, "onRemoveStream " + mediaStream.id)
+        removePeer(id, webRtcListener)
     }
 
     override fun onDataChannel(dataChannel: DataChannel) {}
@@ -88,4 +112,20 @@ class Peer(val id: String, val endPoint: Int) : SdpObserver, PeerConnection.Obse
     override fun onRenegotiationNeeded() {
 
     }
+
+}
+
+fun addPeer(id: String, endPoint: Int, facotry: PeerConnectionFactory, webRtcListener: RtcListener): Peer {
+    val peer = Peer(id, endPoint, facotry, webRtcListener)
+    Peer.peers[id] = peer
+    Peer.endPoints[endPoint] = true
+    return peer
+}
+
+fun removePeer(id: String, webRtcListener: RtcListener) {
+    val peer = Peer.peers[id]
+    webRtcListener.onRemoveRemoteStream(peer!!.endPoint)
+    peer.pc?.close()
+    Peer.peers.remove(peer.id)
+    Peer.endPoints[peer.endPoint] = false
 }

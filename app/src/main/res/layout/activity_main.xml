@@ -17,7 +17,7 @@
                 android:textSize="18dp"
                 android:layout_marginTop="32dp"
                 android:layout_marginStart="16dp"
-                android:text="当前在线用户"
+                android:text="当前在线的其他用户"
                 android:layout_marginLeft="16dp"
                 android:layout_marginBottom="16dp"/>
 

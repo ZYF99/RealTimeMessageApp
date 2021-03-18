@@ -1,4 +1,4 @@
-package com.zeki.realtimemessageapp.ui.ss
+package com.zeki.realtimemessageapp.ui.home
 
 import androidx.recyclerview.widget.RecyclerView
 import com.zeki.realtimemessageapp.R
