@@ -31,6 +31,7 @@
             </intent-filter>
         </activity>
         <activity android:name=".ui.callvideopage.CallVideoActivity"/>
+        <activity android:name=".ui.callvideopage.CallActivity"/>
     </application>
 
 </manifest>

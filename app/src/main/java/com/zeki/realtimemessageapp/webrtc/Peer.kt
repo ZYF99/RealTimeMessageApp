@@ -4,6 +4,7 @@ import android.util.Log
 import com.github.nkzawa.socketio.client.Socket
 import com.zeki.realtimemessageapp.ui.callvideopage.localMS
 import com.zeki.realtimemessageapp.ui.home.sendMessage
+import com.zeki.realtimemessageapp.ui.home.socket
 import org.json.JSONException
 import org.json.JSONObject
 import org.webrtc.*
@@ -24,7 +25,7 @@ class Peer(
         val pcConstraints = MediaConstraints()
         var endPoints = BooleanArray(MAX_PEER)
 
-        var socket: Socket? = null
+
     }
 
     val pc: PeerConnection?

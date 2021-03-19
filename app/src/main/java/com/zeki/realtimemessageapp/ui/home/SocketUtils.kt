@@ -4,6 +4,8 @@ import com.github.nkzawa.socketio.client.Socket
 import org.json.JSONException
 import org.json.JSONObject
 
+var socket: Socket? = null
+
 //告诉服务端我在线了
 fun Socket.readyToStream(name: String) {
     try {

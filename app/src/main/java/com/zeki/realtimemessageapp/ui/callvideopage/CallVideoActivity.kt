@@ -15,7 +15,6 @@ import com.zeki.realtimemessageapp.webrtc.Peer
 import com.zeki.realtimemessageapp.webrtc.Peer.Companion.endPoints
 import com.zeki.realtimemessageapp.webrtc.Peer.Companion.iceServers
 import com.zeki.realtimemessageapp.webrtc.Peer.Companion.peers
-import com.zeki.realtimemessageapp.webrtc.Peer.Companion.socket
 import com.zeki.realtimemessageapp.webrtc.RtcListener
 import com.zeki.realtimemessageapp.webrtc.addPeer
 import io.reactivex.schedulers.Schedulers
@@ -32,7 +31,7 @@ var localMS: MediaStream? = null
 
 class CallVideoActivity : Activity() {
 
-    private var factory: PeerConnectionFactory? = null
+    /*private var factory: PeerConnectionFactory? = null
     private var videoSource: VideoSource? = null
 
     private val vc by lazy { getFrontVideoCapture(application) }
@@ -44,7 +43,6 @@ class CallVideoActivity : Activity() {
     private val binding by lazy { ActivityCallVideoBinding.inflate(layoutInflater) }
 
     private val isCallComing by lazy { intent.extras?.getBoolean(KEY_IS_CALL_COMING) }
-
     private val toId by lazy { intent.extras?.getString(KEY_TO_USER_ID) }
     private val fromId by lazy { intent.extras?.getString(KEY_FROM_USER_ID) }
 
@@ -122,17 +120,6 @@ class CallVideoActivity : Activity() {
                 e.printStackTrace()
             }
         }
-    }
-
-    //通过id 打对面电话
-    private fun callByClientId(clientId: String) {
-        socket?.sendMessage(clientId, "call", JSONObject())
-        //Peer.socket?.sendMessage(clientId, "init", JSONObject())
-    }
-
-    //开始建立webRtc通话流程
-    private fun initRtcCallChannel(clientId: String) {
-        socket?.sendMessage(clientId, "init", JSONObject())
     }
 
     //初始化Peer设置参数
@@ -307,5 +294,5 @@ class CallVideoActivity : Activity() {
             context.startActivity(intent)
         }
     }
-
+*/
 }
