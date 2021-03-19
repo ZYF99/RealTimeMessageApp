@@ -22,7 +22,7 @@ class Peer(
         val peers = HashMap<String, Peer>()
         val iceServers = LinkedList<PeerConnection.IceServer>()
         val pcConstraints = MediaConstraints()
-        val endPoints = BooleanArray(MAX_PEER)
+        var endPoints = BooleanArray(MAX_PEER)
 
         var socket: Socket? = null
     }

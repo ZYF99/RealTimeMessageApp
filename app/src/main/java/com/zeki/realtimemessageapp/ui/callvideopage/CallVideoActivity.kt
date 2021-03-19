@@ -12,6 +12,8 @@ import com.zeki.realtimemessageapp.databinding.ActivityCallVideoBinding
 import com.zeki.realtimemessageapp.ui.home.*
 import com.zeki.realtimemessageapp.webrtc.getFrontVideoCapture
 import com.zeki.realtimemessageapp.webrtc.Peer
+import com.zeki.realtimemessageapp.webrtc.Peer.Companion.endPoints
+import com.zeki.realtimemessageapp.webrtc.Peer.Companion.iceServers
 import com.zeki.realtimemessageapp.webrtc.Peer.Companion.peers
 import com.zeki.realtimemessageapp.webrtc.Peer.Companion.socket
 import com.zeki.realtimemessageapp.webrtc.RtcListener
@@ -275,15 +277,17 @@ class CallVideoActivity : Activity() {
                 peer.pc?.dispose()
             }
         }
+        peers.clear()
+        iceServers.clear()
+        endPoints = BooleanArray(Peer.MAX_PEER)
         Schedulers.io().scheduleDirect {
             videoSource?.dispose()
-            factory?.dispose()
+            //factory?.dispose()
             socket?.disconnect()
             socket?.close()
         }
         vc.dispose()
         finish()
-
     }
 
     companion object {
