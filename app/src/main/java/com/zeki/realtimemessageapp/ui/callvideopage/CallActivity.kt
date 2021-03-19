@@ -4,7 +4,6 @@ import android.Manifest
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
-import android.os.Build
 import android.os.Bundle
 import com.tbruyelle.rxpermissions2.RxPermissions
 import com.zeki.realtimemessageapp.databinding.ActivityCallVideoBinding
@@ -47,8 +46,7 @@ class CallActivity : Activity() {
 
         //断开
         binding.btnCancel.setOnClickListener {
-            isActive = true
-            finish()
+            leave()
         }
     }
 
@@ -60,18 +58,15 @@ class CallActivity : Activity() {
                 Manifest.permission.RECORD_AUDIO
             ).doOnNext { granted ->
                 if (granted) {
-                    webRtcClient?.startLocalCamera(name = Build.MODEL, context = applicationContext)
+                    webRtcClient?.startLocalCamera(context = applicationContext)
                     socket?.sendMessage(fromId!!, "receive", JSONObject())
                 }
             }.subscribe()
         } else {
-            webRtcClient?.startLocalCamera(name = Build.MODEL, context = applicationContext)
-            callByClientId(toId!!)
+            webRtcClient?.startLocalCamera(context = applicationContext)
+            webRtcClient?.callByClientId(toId!!)
         }
     }
-
-    //是否是主动挂断
-    var isActive = true
 
     private fun startWebRtc() {
         webRtcClient = WebRtcClient(
@@ -87,12 +82,22 @@ class CallActivity : Activity() {
                 }
 
                 override fun onRemoveRemoteStream(endPoint: Int) {
-                    isActive = false
-                    finish()
+
                 }
 
+                override fun onOtherLeave() {
+                    leave()
+                }
             }
         )
+    }
+
+    private fun leave() {
+        webRtcClient?.leaveByClientId(
+            if (isCallComing == true) fromId!! else toId!!
+        )
+        webRtcClient?.onDestroy()
+        finish()
     }
 
     override fun onPause() {
@@ -103,17 +108,6 @@ class CallActivity : Activity() {
     override fun onResume() {
         super.onResume()
         webRtcClient?.onResume()
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        webRtcClient?.onDestroy(isActive)
-    }
-
-    //通过id 打对面电话
-    private fun callByClientId(clientId: String) {
-        socket?.sendMessage(clientId, "call", JSONObject())
-        //Peer.socket?.sendMessage(clientId, "init", JSONObject())
     }
 
     companion object {

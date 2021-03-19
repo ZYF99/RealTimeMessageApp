@@ -3,6 +3,7 @@ package com.zeki.realtimemessageapp.ui.home
 import com.github.nkzawa.socketio.client.Socket
 import org.json.JSONException
 import org.json.JSONObject
+import kotlin.jvm.Throws
 
 var socket: Socket? = null
 

@@ -3,22 +3,18 @@ package com.zeki.realtimemessageapp.ui
 import android.app.Application
 import android.content.Context
 import android.util.Log
-
 import com.github.nkzawa.emitter.Emitter
-import com.github.nkzawa.socketio.client.IO
-import com.github.nkzawa.socketio.client.Socket
 import com.zeki.realtimemessageapp.ui.home.sendMessage
 import com.zeki.realtimemessageapp.ui.home.socket
+import io.reactivex.android.schedulers.AndroidSchedulers
+import io.reactivex.schedulers.Schedulers
+import io.reactivex.schedulers.Schedulers.io
 import org.json.JSONArray
-
 import org.json.JSONException
 import org.json.JSONObject
 import org.webrtc.*
-import java.lang.IllegalStateException
-
-import java.net.URISyntaxException
-import java.util.HashMap
-import java.util.LinkedList
+import java.util.*
+import kotlin.jvm.Throws
 
 class WebRtcClient(
     private val app: Application,
@@ -32,7 +28,7 @@ class WebRtcClient(
     private val iceServers = LinkedList<PeerConnection.IceServer>()
     private val pcConstraints = MediaConstraints()
     private var localMS: MediaStream? = null
-    private var videoSource: VideoSource? = null
+    private var localVideoSource: VideoSource? = null
     private val vc by lazy { getVideoCapturer() }
 
     init {
@@ -107,6 +103,7 @@ class WebRtcClient(
                 //根据不同的指令类型和数据响应相应步骤的方法
                 when (type) {
                     "receive" -> initRtcCallChannel(from)//对面接受了我们的电话，开始建立WebRtc通话
+                    "leave" -> webrtcListener.onOtherLeave()//对面挂断了我们的电话
                     "init" -> createOffer(from)
                     "offer" -> createAnswer(from, payload)
                     "answer" -> setRemoteSdp(from, payload)
@@ -271,30 +268,36 @@ class WebRtcClient(
      * Call this method in Activity.onPause()
      */
     fun onPause() {
-        videoSource?.capturerObserver?.onCapturerStopped()
+        localVideoSource?.capturerObserver?.onCapturerStopped()
     }
 
     /**
      * Call this method in Activity.onResume()
      */
     fun onResume() {
-        videoSource?.capturerObserver?.onCapturerStarted(true)
+        localVideoSource?.capturerObserver?.onCapturerStarted(true)
     }
+
+    var hasDispose = false
 
     /**
      * Call this method in Activity.onDestroy()
      */
-    fun onDestroy(isActive:Boolean) {
-        if(isActive){
-            for (peer in peers.values) {
-                peer.pc?.dispose()
+    fun onDestroy() {
+        Schedulers.io().scheduleDirect {
+            try{
+                for (peer in peers.values) {
+                    peer.pc?.close()
+                }
+                if (localVideoSource != null) {
+                    localVideoSource?.dispose()
+                }
+                factory.dispose()
+                hasDispose = true
+            }catch (e:Throwable){
+                e.printStackTrace()
             }
-            factory.dispose()
         }
-        peers.clear()
-
-        videoSource?.dispose()
-
         /*socket?.disconnect()
         socket?.close()*/
     }
@@ -324,9 +327,9 @@ class WebRtcClient(
             } ?: throw IllegalStateException()
         }
 
-    fun startLocalCamera(name: String, context: Context) {
+    fun startLocalCamera(context: Context) {
         //init local media stream
-        val localVideoSource = factory.createVideoSource(false)
+        localVideoSource = factory.createVideoSource(false)
         val surfaceTextureHelper =
             SurfaceTextureHelper.create(
                 Thread.currentThread().name, eglContext
@@ -334,7 +337,7 @@ class WebRtcClient(
         (vc as VideoCapturer).initialize(
             surfaceTextureHelper,
             context,
-            localVideoSource.capturerObserver
+            localVideoSource?.capturerObserver
         )
         vc.startCapture(320, 240, 60)
         localMS = factory.createLocalMediaStream("LOCALMEDIASTREAM")
@@ -350,6 +353,18 @@ class WebRtcClient(
         }*/
     }
 
+    //通过id 打对面电话
+    fun callByClientId(clientId: String) {
+        socket?.sendMessage(clientId, "call", JSONObject())
+        //Peer.socket?.sendMessage(clientId, "init", JSONObject())
+    }
+
+    //通过id 打对面电话
+    fun leaveByClientId(clientId: String) {
+        socket?.sendMessage(clientId, "leave", JSONObject())
+        //Peer.socket?.sendMessage(clientId, "init", JSONObject())
+    }
+
     /**
      * Implement this interface to be notified of events.
      */
@@ -361,7 +376,7 @@ class WebRtcClient(
 
         fun onRemoveRemoteStream(endPoint: Int)
 
-        fun onOnlineIdsChanged(jsonArray: JSONArray) {}
+        fun onOtherLeave()
     }
 
     companion object {
