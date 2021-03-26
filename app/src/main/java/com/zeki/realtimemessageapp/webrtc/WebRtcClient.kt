@@ -12,8 +12,9 @@ import org.json.JSONObject
 import org.webrtc.*
 import java.util.*
 import kotlin.jvm.Throws
+import org.webrtc.MediaConstraints
+import org.webrtc.MediaConstraints.KeyValuePair
 
-var localMS: MediaStream? = null
 
 class WebRtcClient(
     private val app: Application,
@@ -25,8 +26,11 @@ class WebRtcClient(
     private val factory: PeerConnectionFactory
     val peers = HashMap<String, Peer>()
     private val iceServers = LinkedList<PeerConnection.IceServer>()
+    private var localMediaStream: MediaStream? = null
     private val pcConstraints = MediaConstraints()
     private var localVideoSource: VideoSource? = null
+    private var localAudioSource: AudioSource? = null
+    private var localAudioTrack: AudioTrack? = null
     private val vc by lazy { getVideoCapture() }
 
     init {
@@ -56,9 +60,16 @@ class WebRtcClient(
         iceServers.add(PeerConnection.IceServer("stun:stun.l.google.com:19302"))
 
         //初始化本地的 MediaConstraints 创建 PC 时使用，是流媒体的配置信息
-        pcConstraints.mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"))
-        pcConstraints.mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveVideo", "true"))
-        pcConstraints.optional.add(MediaConstraints.KeyValuePair("DtlsSrtpKeyAgreement", "true"))
+        pcConstraints.mandatory.add(KeyValuePair("OfferToReceiveAudio", "true"))
+
+        pcConstraints.mandatory.add(KeyValuePair("maxHeight", 1920.toString()))
+        pcConstraints.mandatory.add(KeyValuePair("maxWidth", 1080.toString()))
+        pcConstraints.mandatory.add(KeyValuePair("maxFrameRate", 60.toString()))
+        pcConstraints.mandatory.add(KeyValuePair("minFrameRate", 30.toString()))
+
+        pcConstraints.mandatory.add(KeyValuePair("OfferToReceiveVideo", "true"))
+        pcConstraints.optional.add(KeyValuePair("DtlsSrtpKeyAgreement", "true"))
+
     }
 
     // 初始化 Socket 通信
@@ -184,7 +195,7 @@ class WebRtcClient(
             Log.d(TAG, "new Peer: $id $endPoint")
             this.pc = factory.createPeerConnection(iceServers, pcConstraints, this)
 
-            pc?.addStream(localMS)
+            pc?.addStream(localMediaStream)
 
             //, new MediaConstraints()
             //webrtcListener.onStatusChanged("CONNECTING")
@@ -307,14 +318,14 @@ class WebRtcClient(
                 for (peer in peers.values) {
                     peer.pc?.dispose()
                 }
-                localMS = null
+                localMediaStream = null
                 peers.clear()
             } else {
                 Schedulers.newThread().scheduleDirect {
                     for (peer in peers.values) {
                         peer.pc?.dispose()
                     }
-                    localMS = null
+                    localMediaStream = null
                     peers.clear()
                 }
             }
@@ -346,32 +357,39 @@ class WebRtcClient(
      * @param name socket name
      */
 
-    private fun getVideoCapture() =
-        Camera2Enumerator(app).run {
-            deviceNames.find {
-                isFrontFacing(it)
-            }?.let {
-                createCapturer(it, null)
-            } ?: throw IllegalStateException()
-        }
+    private fun getVideoCapture(): CameraVideoCapturer = getFrontVideoCapture(app)
 
+    //开启本地摄像头
     fun startLocalCamera(context: Context) {
-        //init local media stream
-        localVideoSource = factory.createVideoSource(false)
-        val surfaceTextureHelper =
-            SurfaceTextureHelper.create(
-                Thread.currentThread().name, eglContext
-            )
-        (vc as VideoCapturer).initialize(
-            surfaceTextureHelper,
-            context,
-            localVideoSource?.capturerObserver
-        )
-        vc.startCapture(320, 240, 60)
+
+        //当前时间戳，用来标记流的名字，使流id唯一
         val t = System.currentTimeMillis()
-        localMS = factory.createLocalMediaStream("LM$t")
-        localMS?.addTrack(factory.createVideoTrack("LM$t", localVideoSource))
-        webrtcListener.onLocalStream(localMS!!)
+
+        //初始化视频流
+        localMediaStream = factory.createLocalMediaStream("LM$t")
+
+        //视频源
+        localVideoSource = factory.createVideoSource(false)
+
+        //初始化图像采集工具
+        val surfaceTextureHelper = SurfaceTextureHelper.create(Thread.currentThread().name, eglContext)
+        (vc as VideoCapturer).initialize(surfaceTextureHelper, context, localVideoSource?.capturerObserver)
+
+        //开始采集图像
+        vc.startCapture(320, 240, 60)
+
+        //添加视频源到流
+        localMediaStream?.addTrack(factory.createVideoTrack("LM$t", localVideoSource))
+
+        //声音源
+        localAudioSource = factory.createAudioSource(MediaConstraints())
+        localAudioTrack = factory.createAudioTrack("audiotrack", localAudioSource)
+
+        //添加声音源到流
+        localMediaStream?.addTrack(localAudioTrack)
+
+        //本地视频渲染回调
+        webrtcListener.onLocalStream(localMediaStream!!)
     }
 
     //通过id 打对面电话
