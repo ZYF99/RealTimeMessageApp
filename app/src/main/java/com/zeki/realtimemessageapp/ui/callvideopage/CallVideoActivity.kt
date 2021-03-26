@@ -1,33 +1,11 @@
 package com.zeki.realtimemessageapp.ui.callvideopage
 
-import android.Manifest
 import android.app.Activity
-import android.content.Context
-import android.content.Intent
-import android.os.Bundle
-import android.util.Log
-import android.widget.Toast
-import com.tbruyelle.rxpermissions2.RxPermissions
-import com.zeki.realtimemessageapp.databinding.ActivityCallVideoBinding
-import com.zeki.realtimemessageapp.ui.home.*
-import com.zeki.realtimemessageapp.webrtc.getFrontVideoCapture
-import com.zeki.realtimemessageapp.webrtc.Peer
-import com.zeki.realtimemessageapp.webrtc.Peer.Companion.endPoints
-import com.zeki.realtimemessageapp.webrtc.Peer.Companion.iceServers
-import com.zeki.realtimemessageapp.webrtc.Peer.Companion.peers
-import com.zeki.realtimemessageapp.webrtc.RtcListener
-import com.zeki.realtimemessageapp.webrtc.addPeer
-import io.reactivex.schedulers.Schedulers
-import org.json.JSONException
-import org.json.JSONObject
 import org.webrtc.*
-import java.util.*
 
 const val KEY_TO_USER_ID = "key_rtc_to_user_id"
 const val KEY_FROM_USER_ID = "key_rtc_from_user_id"
 const val KEY_IS_CALL_COMING = "key_is_coming"
-
-var localMS: MediaStream? = null
 
 class CallVideoActivity : Activity() {
 

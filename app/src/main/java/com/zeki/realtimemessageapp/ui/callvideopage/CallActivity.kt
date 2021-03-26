@@ -7,11 +7,8 @@ import android.content.Intent
 import android.os.Bundle
 import com.tbruyelle.rxpermissions2.RxPermissions
 import com.zeki.realtimemessageapp.databinding.ActivityCallVideoBinding
-import com.zeki.realtimemessageapp.ui.WebRtcClient
+import com.zeki.realtimemessageapp.webrtc.WebRtcClient
 import com.zeki.realtimemessageapp.ui.home.HomeActivity
-import com.zeki.realtimemessageapp.ui.home.sendMessage
-import com.zeki.realtimemessageapp.ui.home.socket
-import org.json.JSONObject
 import org.webrtc.EglBase
 import org.webrtc.MediaStream
 
@@ -32,6 +29,7 @@ class CallActivity : Activity() {
     }
 
     private fun initView() {
+
         binding.localRenderer.apply {
             setEnableHardwareScaler(true)
             setMirror(true)
@@ -46,29 +44,34 @@ class CallActivity : Activity() {
 
         //断开
         binding.btnCancel.setOnClickListener {
-            leave()
+            leave(true)
         }
     }
 
     private fun initData() {
-        startWebRtc()
-        if (isCallComing == true) {
-            RxPermissions(this).request(
-                Manifest.permission.CAMERA,
-                Manifest.permission.RECORD_AUDIO
-            ).doOnNext { granted ->
-                if (granted) {
+        RxPermissions(this).request(
+            Manifest.permission.CAMERA,
+            Manifest.permission.RECORD_AUDIO
+        ).doOnNext { granted ->
+            if (granted) {
+
+                initWebRtc()
+
+                //如果是接受对面电话的情况，直接向对面发送一个receive
+                if (isCallComing == true) {
                     webRtcClient?.startLocalCamera(context = applicationContext)
-                    socket?.sendMessage(fromId!!, "receive", JSONObject())
+                    webRtcClient?.initSocketMessage()
+                    webRtcClient?.receiveByClientId(fromId!!)
+                } else {
+                    webRtcClient?.startLocalCamera(context = applicationContext)
+                    webRtcClient?.initSocketMessage()
+                    webRtcClient?.callByClientId(toId!!)
                 }
-            }.subscribe()
-        } else {
-            webRtcClient?.startLocalCamera(context = applicationContext)
-            webRtcClient?.callByClientId(toId!!)
-        }
+            }
+        }.subscribe()
     }
 
-    private fun startWebRtc() {
+    private fun initWebRtc() {
         webRtcClient = WebRtcClient(
             application,
             eglBase.eglBaseContext,
@@ -82,22 +85,20 @@ class CallActivity : Activity() {
                 }
 
                 override fun onRemoveRemoteStream(endPoint: Int) {
-
-                }
-
-                override fun onOtherLeave() {
-                    leave()
+                    leave(false)
                 }
             }
         )
     }
 
-    private fun leave() {
-        webRtcClient?.leaveByClientId(
-            if (isCallComing == true) fromId!! else toId!!
-        )
-        webRtcClient?.onDestroy()
+    private fun leave(isSender: Boolean) {
+
+        webRtcClient?.onDestroy(isSender)
+        /*binding.localRenderer.release()
+        binding.remoteRenderer.release()*/
+
         finish()
+
     }
 
     override fun onPause() {
