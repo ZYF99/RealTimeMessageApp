@@ -18,9 +18,6 @@ WebRtc 是P2P的技术，在真实场景中，为了实现建立对端通道，�
 #### 基本的图示：
 ![simple_arch.png](https://upload-images.jianshu.io/upload_images/17794320-feb0a465b41c6213.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
-### Demo截图
-![Screenshot_20210318-092518.jpg](https://upload-images.jianshu.io/upload_images/17794320-d67fa3c8f6287826.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
-
 需要服务端代码请联系我
 ![qq_pic_merged_1616061987181.jpg](https://upload-images.jianshu.io/upload_images/17794320-b90aea2b2e9a9093.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
